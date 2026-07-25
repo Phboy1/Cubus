@@ -21,6 +21,7 @@ private:
 
 public:
     c_stepper(uint8_t in1, uint8_t in2, uint8_t in3, uint8_t in4);
+    void init();
     void move_to(int angle);
     void set_speed(int speed);
     void hold();
