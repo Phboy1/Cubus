@@ -69,3 +69,24 @@ namespace stp
 
     }
 }
+
+namespace servoConstants
+{
+    namespace pins
+    {
+        constexpr uint8_t mw = A0;
+        constexpr uint8_t ma = A1;
+        constexpr uint8_t ms = A2;
+        constexpr uint8_t md = A3;
+    }
+}
+namespace shifterConstants
+{
+    namespace pins
+    {
+        constexpr uint8_t h1 = 3;
+        constexpr uint8_t h2 = 4;
+        constexpr uint8_t v1 = 5;
+        constexpr uint8_t v2 = 6;
+    }
+}

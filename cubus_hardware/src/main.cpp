@@ -2,10 +2,16 @@
 #include "config.h"
 #include "StepperDriverAdvanced.h"
 #include "vector_lookup.h"
+#include <Servo.h>
 
 static matrix transform = init;
 move_t move;
 static bool idle = true;
+
+Servo mw;
+Servo ma;
+Servo ms;
+Servo md;
 
 String get_input();
 
@@ -23,9 +29,17 @@ void rot_r(int dir, int num);
 void rot_f(int dir, int num);
 void rot_b(int dir, int num);
 
+void openShifterH();
+void openShifterV();
+
 void setup()
 {
     Serial.begin(115200);
+
+    mw.attach(servoConstants::pins::mw);
+    ma.attach(servoConstants::pins::ma);
+    ms.attach(servoConstants::pins::ms);
+    md.attach(servoConstants::pins::md);
 }
 
 void loop()
@@ -248,6 +262,7 @@ move_t apply_transform(String input)
 
 void rot_x(int dir, int num)
 {
+
     update_orient(rot_typ::x, dir, num);
 }
 void rot_y(int dir, int num)
@@ -262,3 +277,10 @@ void rot_r(int dir, int num) {}
 void rot_f(int dir, int num) {}
 void rot_b(int dir, int num) {}
 String get_input() {}
+
+void openShifterH()
+{
+}
+void openShifterV()
+{
+}
