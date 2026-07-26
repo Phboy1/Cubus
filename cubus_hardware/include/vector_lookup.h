@@ -10,21 +10,21 @@ typedef struct
 typedef struct
 {
     vector3 i;
-    vector3 k;
     vector3 j;
+    vector3 k;
 } matrix;
 
-vector3 up{0, 1, 0};
+const vector3 up{0, 1, 0};
 
-vector3 down{0, -1, 0};
+const vector3 down{0, -1, 0};
 
-vector3 right{1, 0, 0};
+const vector3 right{1, 0, 0};
 
-vector3 left{-1, 0, 0};
+const vector3 left{-1, 0, 0};
 
-vector3 front{0, 0, 1};
+const vector3 front{0, 0, 1};
 
-vector3 back{0, 0, -1};
+const vector3 back{0, 0, -1};
 
 matrix x_rot_ccw{
     {1, 0, 0},
@@ -55,4 +55,19 @@ enum rot_typ
 {
     x,
     z
+};
+
+struct command_map
+{
+    char command_side;
+    vector3 vector;
+};
+
+constexpr command_map command_parser[]{
+    {'U', up},
+    {'D', down},
+    {'F', front},
+    {'B', back},
+    {'L', left},
+    {'R', right},
 };
