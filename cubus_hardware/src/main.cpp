@@ -5,7 +5,7 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial LinkSerial(10, 11);  // RX, TX
+SoftwareSerial LinkSerial(7, 8);  // RX, TX
 const unsigned long LINK_BAUD = 9600;          // must match ARDUINO_BAUD in cubus_esp32.ino
 enum State { WAITING_FOR_MOVE, EXECUTING_MOVE };
 State state = WAITING_FOR_MOVE;
