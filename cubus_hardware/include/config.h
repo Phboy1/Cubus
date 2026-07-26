@@ -9,41 +9,25 @@ typedef struct
     uint8_t in4;
 } stepperPins_t;
 
-typedef struct
-{
-    facing red;
-    facing white;
-} orientation_t;
-
-enum facing
-{
-    u,
-    d,
-    l,
-    r,
-    f,
-    b
-};
-
 enum move_t
 {
     u,
-    up,
+    upr,
     u2,
     d,
-    dp,
+    dpr,
     d2,
     r,
-    rp,
+    rpr,
     r2,
     l,
-    lp,
+    lpr,
     l2,
     f,
-    fp,
+    fpr,
     f2,
     b,
-    bp,
+    bpr,
     b2,
 };
 
@@ -51,7 +35,7 @@ namespace stp
 {
     namespace pins
     {
-        constexpr stepperPins_t L{0, 0, 0, 0}; // left
+        constexpr stepperPins_t L{3, 4, 5, 6}; // left
         constexpr stepperPins_t R{0, 0, 0, 0}; // right
         constexpr stepperPins_t U{0, 0, 0, 0}; // up
         constexpr stepperPins_t D{0, 0, 0, 0}; // down
@@ -60,9 +44,12 @@ namespace stp
     }
     namespace turnConstants
     {
-        constexpr static double TURN_SP = 10;
-        constexpr static double SHIFT_SP = 10;
-        constexpr static uint8_t MICROSTEP_TABLE[16][4] = {
+        constexpr static double TURN_MAX_SP = 2000.0;
+        constexpr static double TURN_ACC = 5000.0;
+        constexpr static double SHIFT_MAX_SP = 10;
+        constexpr static double SHIFT_ACC = 10;
+
+        constexpr static uint8_t MICROSTEP_LOOKUP[16][4] = {
             {255, 0, 0, 0},
             {236, 98, 0, 0},
             {180, 180, 0, 0},
