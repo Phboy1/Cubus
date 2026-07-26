@@ -3,10 +3,19 @@
 #include "StepperDriverAdvanced.h"
 #include "vector_lookup.h"
 #include <Servo.h>
+#include <SoftwareSerial.h>
+
+SoftwareSerial LinkSerial(10, 11);  // RX, TX
+const unsigned long LINK_BAUD = 9600;          // must match ARDUINO_BAUD in cubus_esp32.ino
+enum State { WAITING_FOR_MOVE, EXECUTING_MOVE };
+State state = WAITING_FOR_MOVE;
+String currentMove = "";   // the variable holding the move we last received
+String incomingLine = "";  // scratch buffer while a line is arriving
 
 static matrix transform = init;
 move_t move;
 static bool idle = true;
+static long current_time;
 
 Servo mw;
 Servo ma;
@@ -30,7 +39,9 @@ void rot_f(int dir, int num);
 void rot_b(int dir, int num);
 
 void openShifterH();
+void closeShifterH();
 void openShifterV();
+void closeShifterV();
 
 void setup()
 {
@@ -40,80 +51,147 @@ void setup()
     ma.attach(servoConstants::pins::ma);
     ms.attach(servoConstants::pins::ms);
     md.attach(servoConstants::pins::md);
+
+    pinMode(shifterConstants::pins::hA1, OUTPUT);
+    pinMode(shifterConstants::pins::hA2, OUTPUT);
+    pinMode(shifterConstants::pins::vA1, OUTPUT);
+    pinMode(shifterConstants::pins::vA2, OUTPUT);
+
+    pinMode(shifterConstants::pins::hB1, OUTPUT);
+    pinMode(shifterConstants::pins::hB2, OUTPUT);
+    pinMode(shifterConstants::pins::vB1, OUTPUT);
+    pinMode(shifterConstants::pins::vB2, OUTPUT);
+    
+    //Communication to esp32
+    LinkSerial.begin(LINK_BAUD);  // link to the ESP32
+    Serial.println("Cubus Arduino stub ready, waiting for moves...");
+
 }
 
 void loop()
 {
+    readIncomingMove();
 
-    if (free)
-    {
-        move = apply_transform(get_input());
-
-        idle = false;
-        switch (move)
-        {
-
-        case u:
-            rot_u(true, 1);
-            break;
-        case upr:
-            rot_u(false, 1);
-            break;
-        case u2:
-            rot_u(true, 2);
-            break;
-        case d:
-            rot_d(true, 1);
-            break;
-        case dpr:
-            rot_d(false, 1);
-            break;
-        case d2:
-            rot_d(true, 2);
-            break;
-        case r:
-            rot_r(true, 1);
-            break;
-        case rpr:
-            rot_r(false, 1);
-            break;
-        case r2:
-            rot_r(true, 2);
-            break;
-        case l:
-            rot_l(true, 1);
-            break;
-        case lpr:
-            rot_l(false, 1);
-            break;
-        case l2:
-            rot_l(true, 2);
-            break;
-        case f:
-            rot_f(true, 1);
-            break;
-        case fpr:
-            rot_f(false, 1);
-            break;
-        case f2:
-            rot_f(true, 2);
-            break;
-        case b:
-            rot_b(true, 1);
-            break;
-        case bpr:
-            rot_b(false, 1);
-            break;
-        case b2:
-            rot_b(true, 1);
-            break;
-
-        default:
-            idle = true;
-            Serial.println("Invalid move recieved");
-        }
-    }
+  if (state == EXECUTING_MOVE) {
+    reportDone();
+  }
 }
+
+//---------------------------------------------------------------------------
+// ESP32 Comm...
+
+// Reads whatever is available a line at a time. When a full line arrives
+// and we're not already busy with a move, stores it in currentMove and
+// starts "executing" it.
+void readIncomingMove() {
+  while (LinkSerial.available()) {
+    char c = LinkSerial.read();
+
+    if (c == '\n') {
+      incomingLine.trim();
+      if (incomingLine.length() > 0) {
+        if (state == WAITING_FOR_MOVE) {
+          currentMove = incomingLine;
+          executeMove(currentMove);
+        } else {
+          // A move arrived while we were still "executing" the last one -
+          // shouldn't happen since the ESP32 waits for our OK, but ignore
+          // it defensively rather than losing track of state.
+          Serial.println("Ignoring move, still busy: " + incomingLine);
+        }
+      }
+      incomingLine = "";
+    } else if (c != '\r') {
+      incomingLine += c;
+    }
+  }
+}
+
+// Placeholder "turn the cube" step. Replace the body with real motor
+// control; for now it just remembers the move and starts a 10s timer.
+void executeMove(const String &move) {
+  state = EXECUTING_MOVE;
+  Serial.println("Executing move: " + move);
+
+  move = apply_transform(move);
+
+  switch (move) {
+    case u:
+      rot_u(true, 1);
+      break;
+    case upr:
+      rot_u(false, 1);
+      break;
+    case u2:
+      rot_u(true, 2);
+      break;
+    case d:
+      rot_d(true, 1);
+      break;
+    case dpr:
+      rot_d(false, 1);
+      break;
+    case d2:
+      rot_d(true, 2);
+      break;
+    case r:
+      rot_r(true, 1);
+      break;
+    case rpr:
+      rot_r(false, 1);
+      break;
+    case r2:
+      rot_r(true, 2);
+      break;
+    case l:
+      rot_l(true, 1);
+      break;
+    case lpr:
+      rot_l(false, 1);
+      break;
+    case l2:
+      rot_l(true, 2);
+      break;
+    case f:
+      rot_f(true, 1);
+      break;
+    case fpr:
+      rot_f(false, 1);
+      break;
+    case f2:
+      rot_f(true, 2);
+      break;
+    case b:
+      rot_b(true, 1);
+      break;
+    case bpr:
+      rot_b(false, 1);
+      break;
+    case b2:
+      rot_b(true, 1);
+      break;
+
+    default:
+      state = WAITING_FOR_MOVE;
+      reportError("invalid move")
+  }
+}
+
+void reportDone() {
+  Serial.println("Move done: " + currentMove);
+  LinkSerial.print("OK\n");
+  state = WAITING_FOR_MOVE;
+}
+
+// Call this instead of reportDone() if a move physically fails (e.g. a
+// jam) once you have real motor feedback to detect that.
+void reportError(const String &reason) {
+  Serial.println("Move failed: " + currentMove + " (" + reason + ")");
+  LinkSerial.print("ERR " + reason + "\n");
+  state = WAITING_FOR_MOVE;
+}
+
+//----------------------------------------------------------------------------
 
 void update_orient(enum rot_typ rot, int dir, int num)
 {
@@ -280,7 +358,96 @@ String get_input() {}
 
 void openShifterH()
 {
+    if (shifterConstants::dir::h1)
+    {
+        digitalWrite(shifterConstants::pins::hB1, LOW);
+        digitalWrite(shifterConstants::pins::hA1, HIGH);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::hB1, HIGH);
+        digitalWrite(shifterConstants::pins::hA1, LOW);
+    }
+
+    if (shifterConstants::dir::h2)
+    {
+        digitalWrite(shifterConstants::pins::hB2, LOW);
+        digitalWrite(shifterConstants::pins::hA2, HIGH);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::hB2, HIGH);
+        digitalWrite(shifterConstants::pins::hA2, LOW);
+    }
 }
 void openShifterV()
 {
+    if (shifterConstants::dir::v1)
+    {
+        digitalWrite(shifterConstants::pins::vB1, LOW);
+        digitalWrite(shifterConstants::pins::vA1, HIGH);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::vB1, HIGH);
+        digitalWrite(shifterConstants::pins::vA1, LOW);
+    }
+    if (shifterConstants::dir::v2)
+    {
+        digitalWrite(shifterConstants::pins::vB2, LOW);
+        digitalWrite(shifterConstants::pins::vA2, HIGH);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::vB2, HIGH);
+        digitalWrite(shifterConstants::pins::vA2, LOW);
+    }
+}
+
+void closeShifterH()
+{
+    if (shifterConstants::dir::h1)
+    {
+        digitalWrite(shifterConstants::pins::hB1, HIGH);
+        digitalWrite(shifterConstants::pins::hA1, LOW);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::hB1, LOW);
+        digitalWrite(shifterConstants::pins::hA1, HIGH);
+    }
+
+    if (shifterConstants::dir::h2)
+    {
+        digitalWrite(shifterConstants::pins::hB2, HIGH);
+        digitalWrite(shifterConstants::pins::hA2, LOW);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::hB2, LOW);
+        digitalWrite(shifterConstants::pins::hA2, HIGH);
+    }
+}
+void closeShifterV()
+{
+    if (shifterConstants::dir::v1)
+    {
+        digitalWrite(shifterConstants::pins::vB1, HIGH);
+        digitalWrite(shifterConstants::pins::vA1, LOW);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::vB1, LOW);
+        digitalWrite(shifterConstants::pins::vA1, HIGH);
+    }
+    if (shifterConstants::dir::v2)
+    {
+        digitalWrite(shifterConstants::pins::vB2, HIGH);
+        digitalWrite(shifterConstants::pins::vA2, LOW);
+    }
+    else
+    {
+        digitalWrite(shifterConstants::pins::vB2, LOW);
+        digitalWrite(shifterConstants::pins::vA2, HIGH);
+    }
 }
